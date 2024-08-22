@@ -1,0 +1,64 @@
+- name: install nginx and certbot
+  apt:
+    name: '{{ item }}'
+    update_cache: True
+  loop:
+    - nginx
+    - certbot
+
+- name: Start nginx and certbot
+  service:
+    name: '{{ item }}'
+    state: started
+    enabled: yes
+  loop:
+    - nginx
+    - certbot
+  ignore_errors: yes
+
+- name: check certs
+  when: vhosts != False
+  include_tasks: check_cert.yml
+  loop: '{{ vhosts }}'
+
+- name: Remove default site content and conf
+  file:
+    path: '{{ item }}'
+    state: absent
+  loop:
+    - '/etc/nginx/sites-available/default'
+    - '/etc/nginx/sites-enabled/default'
+    - '/var/www/html'
+
+- name: configure nginx
+  when: configs != False
+  include_tasks: configuration.yml
+
+- name: vhost activation
+  when: vhosts != False
+  include_tasks: vhost_activation.yml
+  loop: '{{ vhosts }}'
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- name: certs renewal
+  when: ssl_renewal == True
+  include_tasks: renew_cert.yml
+
+- name: add cert
+  when: cert_exists.stat.exists == False
+  include_tasks: add_cert.yml
+  loop: '{{ ssl }}'
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- name: check cron task
+  when: ssl_renewal != False or ssl != False
+  include_tasks: check_cron_task.yml
+
+- name: finaly reload nginx
+  service:
+    name: nginx
+    state: reloaded

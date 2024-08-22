@@ -1,0 +1,41 @@
+# - name: add user for tests
+#   user:
+#     name: '{{ username }}'
+#     state: present
+#     shell: /bin/bash
+
+- name: check user
+  shell: awk -F ":" '{print $1}' /etc/passwd | grep '{{ username }}'
+  register: user_exists
+  ignore_errors: yes
+
+- name: configure user
+  when: user_exists.stdout == '{{ username }}'
+  block:
+
+    - name: change password
+      user:
+        name: '{{ username }}'
+        password: '{{ password }}'
+
+    - name: add in sudo
+      when: sudo == True
+      user: 
+        name: '{{ username }}'
+        groups: sudo
+        append: True
+
+    - name: add in sudoers
+      community.general.sudoers:
+        name: custom_sudo
+        state: present
+        user: '{{ username }}'
+        commands: '{{ sudoers }}'
+        nopassword: True
+      
+
+    - name: copy pub ssh key
+      ansible.posix.authorized_key:
+        user: '{{ username }}'
+        key: "{{ public_key }}"
+        state: present

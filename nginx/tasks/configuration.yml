@@ -1,0 +1,5 @@
+- name: copy nginx config
+  copy: 
+    src: '{{ configs }}/'
+    dest: /etc/nginx/
+  notify: reload nginx
